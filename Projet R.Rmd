@@ -1,0 +1,175 @@
+---
+title: "Projet R+SAS"
+author: "[Thomas Blachier](https://github.com/thomas-blachier)"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+mail: "thomas.blachier@mines-ales.org"
+github: "thomas-blachier"
+#home: "www.yan-holtz.com"
+# !!! You need to provide a logo image here !!! Or just delete the field for no logo
+logo: "dau.png"
+output:
+  epuRate::epurate:
+    toc: TRUE
+    number_sections: FALSE
+    code_folding: "hide"
+---
+
+
+<br><br>
+
+
+# Importation et installation de librairies
+***
+```{r, message=FALSE, warning=FALSE}
+#setwd("C:/Users/thoma/OneDrive/Desktop/R+SAS")
+#install.packages(c('devtools','tidyverse','rmarkdown'))
+#library('devtools')
+#install_github("holtzy/epuRate", force=TRUE)
+
+```
+
+# Exercice 0
+
+Repertoire de travail
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(rmarkdown)    # You need this library to run this template.
+library(epuRate)      # Install with devtools: install_github("holtzy/epuRate", force=TRUE)
+library(readxl)
+library(eeptools)
+library(lubridate)
+
+setwd("C:/Users/thoma/OneDrive/Desktop/R+SAS")
+dir()
+```
+
+Importation des tables.
+
+
+```{r,message=FALSE, warning=FALSE}
+setwd("C:/Users/thoma/OneDrive/Desktop/R+SAS")
+Achats = read_excel("Achats.xlsx")
+Adresses = read_excel('Adresses.xlsx')
+Magasins = read_excel('Magasins.xlsx')
+Clients = read_excel('Clients.xlsx')
+Achats
+Adresses
+Magasins
+Clients
+
+```
+
+# Exercice 1
+
+
+Age des clients au 31 janvier.
+
+```{r,message=FALSE, warning=FALSE}
+
+df = na.omit(Clients[c(1,4)])
+df$age = age_calc(as.Date(df$date_naissance), enddate = Sys.Date(), units = "years", precise = FALSE)
+df$date_naissance = NULL
+Clients = full_join(Clients,df,by='ident_clt')
+remove(df)
+```
+
+Anciennete au 31 janvier.
+
+```{r,message=FALSE, warning=FALSE}
+df = na.omit(Clients[c(1,6)])
+df$anciennete = age_calc(as.Date(df$date_souscription), enddate = Sys.Date(), units = "years", precise = FALSE)
+df$date_souscription = NULL
+Clients = full_join(Clients,df,by='ident_clt')
+remove(df)
+```
+
+Il y a des valeurs manquantes dans la variable age.
+
+```{r,message=FALSE, warning=FALSE}
+df = na.omit(Clients$age)
+age_moyen = trunc(mean(df))
+Clients$age[is.na(Clients$age)] = age_moyen
+remove(df)
+Clients
+```
+
+
+
+# Exercice 2 
+
+
+
+```{r,message=FALSE, warning=FALSE}
+
+print(paste0("Nombre de clients ayant achete au moins un article = ",length(unique(Achats$ident_clt))))
+
+```
+Il y a 348 clients qui on fait au moins un achat.
+
+```{r,message=FALSE, warning=TRUE}
+
+Achats$montant = Achats$quantite*Achats$prix_ht*(1+Achats$TVA/100)
+df = setdiff(unique(Clients$ident_clt),unique(Achats$ident_clt))
+data = setdiff(unique(Achats$ident_clt),unique(Clients$ident_clt))
+print(paste0("Nombre de clients n'ayant rien achete = ",length(df)))
+print(paste0("Nombre de clients n'etant pas dans la base de donnees = ",length(data)))
+remove(data,df)
+```
+Il y 1606 clients qui n'ont rien achetes. Cependant 7 clients ayants achete au moins un article ne sont pas dans la base de donnees Clients.
+
+```{r,message=FALSE, warning=FALSE}
+achat_moyen = mean(Achats$montant)
+print(paste0("Valeur de l'achat moyen = ",trunc(achat_moyen)))
+```
+L'achat moyen est d'environ 52 ???
+```{r,message=FALSE, warning=FALSE}
+
+df = full_join(Achats,Clients[c(1,5)],by='ident_clt')
+df=df[c(10,11)]
+df = na.omit(df)
+depense_homme = mean(df$montant[df$sexe==1])
+depense_femme = mean(df$montant[df$sexe==2])
+print(paste0("Depense moyenne des hommes = ",trunc(depense_homme)))
+print(paste0("Depense moyenne des femmes = ",trunc(depense_femme)))
+remove(df)
+```
+
+Les femmes depensent plus que les hommes.
+
+```{r,message=FALSE, warning=FALSE}
+Achats$tps_ecoule_dernier_achat = age_calc(as.Date(Achats$date_achat), enddate = Sys.Date(), units = "months", precise = FALSE)
+Achats$tps_ecoule_dernier_achat
+summary(Achats$tps_ecoule_dernier_achat)
+```
+
+On peut voir que les derniers achats ont ete effectues entre 4 et 24 mois (au 31 janvier).
+
+# Exercice 3 
+
+```{r,message=TRUE, warning=TRUE}
+
+
+Synthese = full_join(Achats,Clients,by='ident_clt')
+Synthese = full_join(Synthese,Adresses,by='ident_clt')
+Synthese = full_join(Synthese,Magasins,by='id_magasin')
+
+
+mois = 9
+annee = 2020
+Synthese = Synthese %>%
+  select(everything()) %>%
+  filter(month(date_achat) == mois & year(date_achat)==annee)
+
+
+Synthese
+
+```
+
+
+
+
+
+
+
+
+
